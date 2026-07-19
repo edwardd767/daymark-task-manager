@@ -78,6 +78,7 @@ h1 { font-family: 'Newsreader', serif; font-size: clamp(48px, 8vw, 76px); line-h
 .task-content > span { overflow-wrap: anywhere; }
 .task-row.completed .task-content > span { text-decoration: line-through; color: #999a92; }
 .overdue-label { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; color: #a44740; background: #f8e3df; border-radius: 999px; padding: 4px 7px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.overdue-label.due-today { color: #805d24; background: #f6ead0; }
 .check-button, .delete-button { border: 0; background: transparent; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; }
 .check-button { color: var(--green); justify-self: start; }
 .delete-button { color: #aaa9a2; opacity: 0; transition: opacity .15s ease, color .15s ease; }

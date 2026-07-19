@@ -80,11 +80,11 @@ function TaskManager({ user }) {
 
   const completed = selectedTasks.filter((task) => task.completed).length
   const progress = selectedTasks.length ? Math.round((completed / selectedTasks.length) * 100) : 0
-  const overdueTasks = useMemo(() => tasks.filter((task) => !task.completed && task.due_date < today), [tasks, today])
+  const alertTasks = useMemo(() => tasks.filter((task) => !task.completed && task.due_date <= today), [tasks, today])
 
-  function showOverdueTasks() {
-    if (!overdueTasks.length) return
-    const earliestDate = [...overdueTasks].sort((a, b) => a.due_date.localeCompare(b.due_date))[0].due_date
+  function showAlertTasks() {
+    if (!alertTasks.length) return
+    const earliestDate = [...alertTasks].sort((a, b) => a.due_date.localeCompare(b.due_date))[0].due_date
     setSelectedDate(earliestDate)
     setFilter('active')
   }
@@ -141,10 +141,10 @@ function TaskManager({ user }) {
       </header>
       <section className="workspace" id="top">
         <div className="intro"><p className="eyebrow">YOUR DAILY FOCUS</p><h1>Make today count.</h1><p className="subtitle"><Cloud size={16} /> Update your daily tasks here.</p></div>
-        {overdueTasks.length > 0 && (
-          <button className="overdue-alert" type="button" onClick={showOverdueTasks}>
+        {alertTasks.length > 0 && (
+          <button className="overdue-alert" type="button" onClick={showAlertTasks}>
             <span className="overdue-icon"><Bell size={19} fill="currentColor" /></span>
-            <span><strong>{overdueTasks.length} overdue {overdueTasks.length === 1 ? 'task' : 'tasks'}</strong><small>Tap to review incomplete tasks from previous days.</small></span>
+            <span><strong>{alertTasks.length} {alertTasks.length === 1 ? 'task needs' : 'tasks need'} attention</strong><small>Tap to review incomplete tasks due today or earlier.</small></span>
             <ChevronRight size={19} />
           </button>
         )}
@@ -180,7 +180,7 @@ function TaskManager({ user }) {
             {loading ? <div className="empty-state"><p>Loading your tasks…</p></div> : filteredTasks.length === 0 ? <div className="empty-state"><ListTodo size={30} /><p>No tasks for this day. Enjoy the breathing room.</p></div> : filteredTasks.map((task) => (
               <article className={`task-row ${task.completed ? 'completed' : ''}`} key={task.id}>
                 <button className="check-button" onClick={() => toggleTask(task)} aria-label={`Toggle ${task.title}`}>{task.completed ? <Check size={17} strokeWidth={3} /> : <Circle size={19} />}</button>
-                <span className="task-content"><span>{task.title}</span>{!task.completed && task.due_date < today && <small className="overdue-label"><Bell size={12} fill="currentColor" /> Overdue</small>}</span>
+                <span className="task-content"><span>{task.title}</span>{!task.completed && task.due_date <= today && <small className={`overdue-label ${task.due_date === today ? 'due-today' : ''}`}><Bell size={12} fill="currentColor" /> {task.due_date === today ? 'Due today' : 'Overdue'}</small>}</span>
                 <button className="delete-button" onClick={() => deleteTask(task.id)} aria-label={`Delete ${task.title}`}><Trash2 size={17} /></button>
               </article>
             ))}
