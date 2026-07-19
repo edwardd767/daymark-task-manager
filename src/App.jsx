@@ -107,7 +107,7 @@ function TaskManager({ user }) {
         <div className="account-area"><span>{user.email}</span><button onClick={() => supabase.auth.signOut()}><LogOut size={16} /> Sign out</button></div>
       </header>
       <section className="workspace" id="top">
-        <div className="intro"><p className="eyebrow">YOUR DAILY FOCUS</p><h1>Make today count.</h1><p className="subtitle"><Cloud size={16} /> Your tasks are synced with Supabase.</p></div>
+        <div className="intro"><p className="eyebrow">YOUR DAILY FOCUS</p><h1>Make today count.</h1><p className="subtitle"><Cloud size={16} /> Update your daily tasks here.</p></div>
         <section className="task-card" aria-label="Task manager">
           <form className="add-form" onSubmit={addTask}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs to be done?" aria-label="New task" maxLength={120} />
