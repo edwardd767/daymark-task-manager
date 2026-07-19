@@ -88,6 +88,18 @@ function TaskManager({ user }) {
     .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.title.localeCompare(b.title)), [tasks, reportFrom, reportTo])
   const reportCompleted = reportTasks.filter((task) => task.completed).length
   const reportPending = reportTasks.length - reportCompleted
+  const reportOverdue = reportTasks.filter((task) => !task.completed && task.due_date < today).length
+  const completionRate = reportTasks.length ? Math.round((reportCompleted / reportTasks.length) * 100) : 0
+  const reportByDate = useMemo(() => {
+    const grouped = reportTasks.reduce((result, task) => {
+      if (!result[task.due_date]) result[task.due_date] = { date: task.due_date, total: 0, completed: 0 }
+      result[task.due_date].total += 1
+      if (task.completed) result[task.due_date].completed += 1
+      return result
+    }, {})
+    return Object.values(grouped)
+  }, [reportTasks])
+  const highestDailyTotal = Math.max(...reportByDate.map((item) => item.total), 1)
 
   function downloadReport() {
     const escapeCsv = (value) => `"${String(value).replaceAll('"', '""')}"`
@@ -222,6 +234,32 @@ function TaskManager({ user }) {
             <div><strong>{reportCompleted}</strong><span>Completed</span></div>
             <div><strong>{reportPending}</strong><span>Pending</span></div>
           </div>
+          <section className="bi-dashboard" aria-label="Business intelligence dashboard">
+            <div className="bi-title"><p className="eyebrow">BI OVERVIEW</p><h3>Performance insights</h3></div>
+            <div className="bi-grid">
+              <div className="bi-panel completion-panel">
+                <span className="panel-label">Completion rate</span>
+                <div className="donut-chart" style={{ '--completion': `${completionRate * 3.6}deg` }}><div><strong>{completionRate}%</strong><small>complete</small></div></div>
+                <div className="chart-legend"><span><i className="legend-completed" /> {reportCompleted} completed</span><span><i className="legend-pending" /> {reportPending} pending</span></div>
+              </div>
+              <div className="bi-panel insight-panel">
+                <span className="panel-label">Key indicators</span>
+                <div className="indicator"><span>Overdue tasks</span><strong className={reportOverdue ? 'danger-text' : ''}>{reportOverdue}</strong></div>
+                <div className="indicator"><span>Active days</span><strong>{reportByDate.length}</strong></div>
+                <div className="indicator"><span>Average tasks/day</span><strong>{reportByDate.length ? (reportTasks.length / reportByDate.length).toFixed(1) : '0.0'}</strong></div>
+              </div>
+              <div className="bi-panel trend-panel">
+                <span className="panel-label">Tasks by day</span>
+                {reportByDate.length === 0 ? <p className="chart-empty">No data for this period.</p> : <div className="bar-chart">
+                  {reportByDate.map((item) => <div className="bar-column" key={item.date} title={`${item.date}: ${item.total} tasks, ${item.completed} completed`}>
+                    <div className="bar-value">{item.total}</div>
+                    <div className="bar-track"><span style={{ height: `${Math.max((item.total / highestDailyTotal) * 100, 8)}%` }}><i style={{ height: `${item.total ? (item.completed / item.total) * 100 : 0}%` }} /></span></div>
+                    <small>{new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(`${item.date}T00:00:00`))}</small>
+                  </div>)}
+                </div>}
+              </div>
+            </div>
+          </section>
           <div className="report-table-wrap">
             <table className="report-table">
               <thead><tr><th>Date</th><th>Task</th><th>Status</th></tr></thead>
