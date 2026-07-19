@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Circle, Cloud, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
+import { Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Circle, Cloud, Download, FileText, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
 function AuthScreen() {
@@ -58,6 +58,8 @@ function TaskManager({ user }) {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reportFrom, setReportFrom] = useState(`${today.slice(0, 8)}01`)
+  const [reportTo, setReportTo] = useState(today)
 
   useEffect(() => {
     async function loadTasks() {
@@ -81,6 +83,26 @@ function TaskManager({ user }) {
   const completed = selectedTasks.filter((task) => task.completed).length
   const progress = selectedTasks.length ? Math.round((completed / selectedTasks.length) * 100) : 0
   const alertTasks = useMemo(() => tasks.filter((task) => !task.completed && task.due_date <= today), [tasks, today])
+  const reportTasks = useMemo(() => tasks
+    .filter((task) => task.due_date >= reportFrom && task.due_date <= reportTo)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.title.localeCompare(b.title)), [tasks, reportFrom, reportTo])
+  const reportCompleted = reportTasks.filter((task) => task.completed).length
+  const reportPending = reportTasks.length - reportCompleted
+
+  function downloadReport() {
+    const escapeCsv = (value) => `"${String(value).replaceAll('"', '""')}"`
+    const rows = [
+      ['Date', 'Task', 'Status'],
+      ...reportTasks.map((task) => [task.due_date, task.title, task.completed ? 'Completed' : task.due_date < today ? 'Overdue' : 'Pending']),
+    ]
+    const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `daymark-report-${reportFrom}-to-${reportTo}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   function showAlertTasks() {
     if (!alertTasks.length) return
@@ -184,6 +206,32 @@ function TaskManager({ user }) {
                 <button className="delete-button" onClick={() => deleteTask(task.id)} aria-label={`Delete ${task.title}`}><Trash2 size={17} /></button>
               </article>
             ))}
+          </div>
+        </section>
+        <section className="report-card" aria-label="Task report">
+          <div className="report-heading">
+            <div><p className="eyebrow">TASK REPORT</p><h2><FileText size={23} /> Records by date and status.</h2></div>
+            <button type="button" onClick={downloadReport} disabled={!reportTasks.length}><Download size={17} /> Download CSV</button>
+          </div>
+          <div className="report-filters">
+            <label>From<input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} /></label>
+            <label>To<input type="date" value={reportTo} min={reportFrom} onChange={(e) => setReportTo(e.target.value)} /></label>
+          </div>
+          <div className="report-summary">
+            <div><strong>{reportTasks.length}</strong><span>Total tasks</span></div>
+            <div><strong>{reportCompleted}</strong><span>Completed</span></div>
+            <div><strong>{reportPending}</strong><span>Pending</span></div>
+          </div>
+          <div className="report-table-wrap">
+            <table className="report-table">
+              <thead><tr><th>Date</th><th>Task</th><th>Status</th></tr></thead>
+              <tbody>
+                {reportTasks.length === 0 ? <tr><td colSpan="3" className="report-empty">No tasks found for this date range.</td></tr> : reportTasks.map((task) => {
+                  const status = task.completed ? 'Completed' : task.due_date < today ? 'Overdue' : 'Pending'
+                  return <tr key={task.id}><td>{new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(`${task.due_date}T00:00:00`))}</td><td>{task.title}</td><td><span className={`status-badge ${status.toLowerCase()}`}>{status}</span></td></tr>
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       </section>
