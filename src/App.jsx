@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Circle, Cloud, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
+import { Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Circle, Cloud, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
 function AuthScreen() {
@@ -80,6 +80,14 @@ function TaskManager({ user }) {
 
   const completed = selectedTasks.filter((task) => task.completed).length
   const progress = selectedTasks.length ? Math.round((completed / selectedTasks.length) * 100) : 0
+  const overdueTasks = useMemo(() => tasks.filter((task) => !task.completed && task.due_date < today), [tasks, today])
+
+  function showOverdueTasks() {
+    if (!overdueTasks.length) return
+    const earliestDate = [...overdueTasks].sort((a, b) => a.due_date.localeCompare(b.due_date))[0].due_date
+    setSelectedDate(earliestDate)
+    setFilter('active')
+  }
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = new Date(`${selectedDate}T00:00:00`)
@@ -133,6 +141,13 @@ function TaskManager({ user }) {
       </header>
       <section className="workspace" id="top">
         <div className="intro"><p className="eyebrow">YOUR DAILY FOCUS</p><h1>Make today count.</h1><p className="subtitle"><Cloud size={16} /> Update your daily tasks here.</p></div>
+        {overdueTasks.length > 0 && (
+          <button className="overdue-alert" type="button" onClick={showOverdueTasks}>
+            <span className="overdue-icon"><Bell size={19} fill="currentColor" /></span>
+            <span><strong>{overdueTasks.length} overdue {overdueTasks.length === 1 ? 'task' : 'tasks'}</strong><small>Tap to review incomplete tasks from previous days.</small></span>
+            <ChevronRight size={19} />
+          </button>
+        )}
         <section className="daily-overview" aria-label="Tasks by day">
           <div className="overview-heading">
             <div><p className="eyebrow">DAILY OVERVIEW</p><h2>Plan the week ahead.</h2></div>
@@ -165,7 +180,7 @@ function TaskManager({ user }) {
             {loading ? <div className="empty-state"><p>Loading your tasks…</p></div> : filteredTasks.length === 0 ? <div className="empty-state"><ListTodo size={30} /><p>No tasks for this day. Enjoy the breathing room.</p></div> : filteredTasks.map((task) => (
               <article className={`task-row ${task.completed ? 'completed' : ''}`} key={task.id}>
                 <button className="check-button" onClick={() => toggleTask(task)} aria-label={`Toggle ${task.title}`}>{task.completed ? <Check size={17} strokeWidth={3} /> : <Circle size={19} />}</button>
-                <span>{task.title}</span>
+                <span className="task-content"><span>{task.title}</span>{!task.completed && task.due_date < today && <small className="overdue-label"><Bell size={12} fill="currentColor" /> Overdue</small>}</span>
                 <button className="delete-button" onClick={() => deleteTask(task.id)} aria-label={`Delete ${task.title}`}><Trash2 size={17} /></button>
               </article>
             ))}
