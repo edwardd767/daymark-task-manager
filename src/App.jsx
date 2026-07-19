@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Circle, Cloud, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Circle, Cloud, ListTodo, LogOut, Plus, Trash2 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from './supabase.js'
 
 function AuthScreen() {
@@ -50,8 +50,11 @@ function AuthScreen() {
 }
 
 function TaskManager({ user }) {
+  const today = new Date().toLocaleDateString('en-CA')
   const [tasks, setTasks] = useState([])
   const [title, setTitle] = useState('')
+  const [dueDate, setDueDate] = useState(today)
+  const [selectedDate, setSelectedDate] = useState(today)
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -67,14 +70,36 @@ function TaskManager({ user }) {
     loadTasks()
   }, [])
 
-  const filteredTasks = useMemo(() => tasks.filter((task) => {
+  const selectedTasks = useMemo(() => tasks.filter((task) => task.due_date === selectedDate), [tasks, selectedDate])
+
+  const filteredTasks = useMemo(() => selectedTasks.filter((task) => {
     if (filter === 'active') return !task.completed
     if (filter === 'done') return task.completed
     return true
-  }), [tasks, filter])
+  }), [selectedTasks, filter])
 
-  const completed = tasks.filter((task) => task.completed).length
-  const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0
+  const completed = selectedTasks.filter((task) => task.completed).length
+  const progress = selectedTasks.length ? Math.round((completed / selectedTasks.length) * 100) : 0
+
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(`${selectedDate}T00:00:00`)
+    date.setDate(date.getDate() + index)
+    const iso = date.toLocaleDateString('en-CA')
+    const dayTasks = tasks.filter((task) => task.due_date === iso)
+    return {
+      iso,
+      day: new Intl.DateTimeFormat('en', { weekday: 'short' }).format(date),
+      date: date.getDate(),
+      total: dayTasks.length,
+      done: dayTasks.filter((task) => task.completed).length,
+    }
+  }), [selectedDate, tasks])
+
+  function moveWeek(days) {
+    const date = new Date(`${selectedDate}T00:00:00`)
+    date.setDate(date.getDate() + days)
+    setSelectedDate(date.toLocaleDateString('en-CA'))
+  }
 
   async function addTask(event) {
     event.preventDefault()
@@ -82,9 +107,9 @@ function TaskManager({ user }) {
     if (!cleanTitle) return
     setError('')
     const { data, error: addError } = await supabase
-      .from('tasks').insert({ title: cleanTitle, user_id: user.id }).select().single()
+      .from('tasks').insert({ title: cleanTitle, due_date: dueDate, user_id: user.id }).select().single()
     if (addError) setError(addError.message)
-    else { setTasks((current) => [data, ...current]); setTitle('') }
+    else { setTasks((current) => [data, ...current]); setTitle(''); setSelectedDate(dueDate) }
   }
 
   async function toggleTask(task) {
@@ -108,18 +133,36 @@ function TaskManager({ user }) {
       </header>
       <section className="workspace" id="top">
         <div className="intro"><p className="eyebrow">YOUR DAILY FOCUS</p><h1>Make today count.</h1><p className="subtitle"><Cloud size={16} /> Update your daily tasks here.</p></div>
+        <section className="daily-overview" aria-label="Tasks by day">
+          <div className="overview-heading">
+            <div><p className="eyebrow">DAILY OVERVIEW</p><h2>Plan the week ahead.</h2></div>
+            <div className="week-controls">
+              <button type="button" onClick={() => moveWeek(-7)} aria-label="Previous week"><ChevronLeft size={18} /></button>
+              <button type="button" className="today-button" onClick={() => setSelectedDate(today)}>Today</button>
+              <button type="button" onClick={() => moveWeek(7)} aria-label="Next week"><ChevronRight size={18} /></button>
+            </div>
+          </div>
+          <div className="day-grid">
+            {weekDays.map((item) => (
+              <button type="button" key={item.iso} className={`day-card ${selectedDate === item.iso ? 'selected' : ''}`} onClick={() => setSelectedDate(item.iso)}>
+                <span>{item.day}</span><strong>{item.date}</strong><small>{item.total} {item.total === 1 ? 'task' : 'tasks'}</small><em>{item.done} done</em>
+              </button>
+            ))}
+          </div>
+        </section>
         <section className="task-card" aria-label="Task manager">
           <form className="add-form" onSubmit={addTask}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs to be done?" aria-label="New task" maxLength={120} />
+            <label className="date-field"><CalendarDays size={17} /><input type="date" value={dueDate} min={today} onChange={(e) => setDueDate(e.target.value)} aria-label="Task due date" required /></label>
             <button type="submit"><Plus size={19} /> Add task</button>
           </form>
           {error && <p className="error-banner">{error}</p>}
-          <div className="summary"><div><strong>{tasks.length - completed}</strong><span> left today</span></div><div className="progress-wrap"><div className="progress-track"><span style={{ width: `${progress}%` }} /></div><span>{progress}% complete</span></div></div>
+          <div className="summary"><div><strong>{selectedTasks.length - completed}</strong><span> left on {new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(`${selectedDate}T00:00:00`))}</span></div><div className="progress-wrap"><div className="progress-track"><span style={{ width: `${progress}%` }} /></div><span>{progress}% complete</span></div></div>
           <div className="filters" role="group" aria-label="Filter tasks">
             {['all', 'active', 'done'].map((option) => <button className={filter === option ? 'active' : ''} key={option} onClick={() => setFilter(option)} type="button">{option[0].toUpperCase() + option.slice(1)}</button>)}
           </div>
           <div className="task-list">
-            {loading ? <div className="empty-state"><p>Loading your tasks…</p></div> : filteredTasks.length === 0 ? <div className="empty-state"><ListTodo size={30} /><p>No tasks here. Enjoy the breathing room.</p></div> : filteredTasks.map((task) => (
+            {loading ? <div className="empty-state"><p>Loading your tasks…</p></div> : filteredTasks.length === 0 ? <div className="empty-state"><ListTodo size={30} /><p>No tasks for this day. Enjoy the breathing room.</p></div> : filteredTasks.map((task) => (
               <article className={`task-row ${task.completed ? 'completed' : ''}`} key={task.id}>
                 <button className="check-button" onClick={() => toggleTask(task)} aria-label={`Toggle ${task.title}`}>{task.completed ? <Check size={17} strokeWidth={3} /> : <Circle size={19} />}</button>
                 <span>{task.title}</span>
